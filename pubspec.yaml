@@ -1,0 +1,9 @@
+name: bungie_client
+author: P.Y. Laligand
+version: 0.0.1
+description: A library to interact with the Bungie API.
+dependencies:
+  http: ^0.11.3+3
+  logging: ^0.11.2
+dev_dependencies:
+  quiver: ^0.21.0
