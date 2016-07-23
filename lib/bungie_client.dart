@@ -67,20 +67,38 @@ class BungieClient {
     return activityHash != null ? new ActivityReference(activityHash) : null;
   }
 
-  /// Returns the last character the given player played with.
-  Future<Character> getLastPlayedCharacter(DestinyId id) async {
+  /// Returns a summary of the given player's profile.
+  Future<Profile> getPlayerProfile(DestinyId id) async {
     final url = '$_BASE/User/GetBungieAccount/${id.token}/${id.type}/';
     final data = await _getJson(url);
     if (!_hasValidResponse(data) ||
         data['Response']['destinyAccounts'] == null ||
         data['Response']['destinyAccounts'].isEmpty ||
-        data['Response']['destinyAccounts'][0] == null ||
-        data['Response']['destinyAccounts'][0]['characters'] == null ||
-        data['Response']['destinyAccounts'][0]['characters'].isEmpty) {
+        data['Response']['destinyAccounts'][0] == null) {
       return null;
     }
-    final characterData = data['Response']['destinyAccounts'][0]['characters']
-        .reduce((current, character) {
+    final account = data['Response']['destinyAccounts'][0];
+    return new Profile(
+        account['grimoireScore'],
+        _extractCharacterCount(account),
+        _extractLastPlayedCharacter(account, id));
+  }
+
+  /// Extacts the number of played characters from the given account data.
+  int _extractCharacterCount(Map account) {
+    if (account['characters'] == null || account['characters'].isEmpty) {
+      return 0;
+    }
+    return account['characters'].length;
+  }
+
+  /// Extracts information about the last played character from the given
+  /// account data.
+  Character _extractLastPlayedCharacter(Map account, DestinyId id) {
+    if (account['characters'] == null || account['characters'].isEmpty) {
+      return null;
+    }
+    final characterData = account['characters'].reduce((current, character) {
       final currentPlayedTime = DateTime.parse(current['dateLastPlayed']);
       final lastPlayedTime = DateTime.parse(character['dateLastPlayed']);
       return currentPlayedTime.compareTo(lastPlayedTime) > 0
@@ -92,6 +110,11 @@ class BungieClient {
         characterData['characterId'],
         characterData['classHash'].toString(),
         DateTime.parse(characterData['dateLastPlayed']));
+  }
+
+  /// Returns the last character the given player played with.
+  Future<Character> getLastPlayedCharacter(DestinyId id) async {
+    return (await getPlayerProfile(id)).lastPlayedCharacter;
   }
 
   /// Returns a reference to the last game completed with the given character.
@@ -116,15 +139,7 @@ class BungieClient {
 
   /// Returns the grimoire score of the given player.
   Future<int> getGrimoireScore(Id id) async {
-    final url = '$_BASE/User/GetBungieAccount/${id.token}/${id.type}/';
-    final data = await _getJson(url);
-    if (!_hasValidResponse(data) ||
-        data['Response']['destinyAccounts'] == null ||
-        data['Response']['destinyAccounts'].isEmpty ||
-        data['Response']['destinyAccounts'][0] == null) {
-      return null;
-    }
-    return data['Response']['destinyAccounts'][0]['grimoireScore'];
+    return (await getPlayerProfile(id)).grimoire;
   }
 
   /// Returns the inventory for the given character.
@@ -153,8 +168,11 @@ class BungieClient {
         continue;
       }
       members.addAll(data['Response']['results'].map((userData) =>
-          new ClanMember(new DestinyId(onXbox, userData['membershipId']),
-              userData['destinyUserInfo']['displayName'], onXbox)));
+          new ClanMember(
+              new DestinyId(
+                  onXbox, userData['destinyUserInfo']['membershipId']),
+              userData['destinyUserInfo']['displayName'],
+              onXbox)));
       if (!data['Response']['hasMore']) {
         break;
       }

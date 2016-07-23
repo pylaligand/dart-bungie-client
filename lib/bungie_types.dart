@@ -99,6 +99,20 @@ class ClanMember {
   String toString() => '$gamertag[$id]';
 }
 
+/// A player's profile summary.
+class Profile {
+  /// Grimoire score.
+  final int grimoire;
+
+  /// Number of played characters.
+  final int characterCount;
+
+  /// Character last played by the player.
+  final Character lastPlayedCharacter;
+
+  const Profile(this.grimoire, this.characterCount, this.lastPlayedCharacter);
+}
+
 /// Identifiers for various equipment objects.
 class ItemId {
   /// The item's hash value.
