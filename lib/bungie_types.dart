@@ -2,7 +2,7 @@
 
 import 'package:quiver/core.dart';
 
-/// Mappings from class to subclasses to subclass names.
+/// Mappings from subclass ids to subclass names.
 const _SUBCLASSES = const {
   // Hunter (671679327)
   2962927168: 'Bladedancer',
@@ -39,10 +39,12 @@ const _ARMOR_BUCKETS = const [
 class Character {
   final DestinyId owner;
   final String id;
-  final String clazz;
+  final String _clazz;
   final DateTime lastPlayed;
 
-  const Character(this.owner, this.id, this.clazz, this.lastPlayed);
+  const Character(this.owner, this.id, this._clazz, this.lastPlayed);
+
+  Class get clazz => CLASS_MAPPINGS[_clazz];
 
   @override
   String toString() => 'Character{$id, $clazz}';
@@ -104,13 +106,19 @@ class Profile {
   /// Grimoire score.
   final int grimoire;
 
+  /// The player's characters.
+  final List<Character> characters;
+
+  const Profile(this.grimoire, this.characters);
+
   /// Number of played characters.
-  final int characterCount;
+  int get characterCount => characters.length;
 
   /// Character last played by the player.
-  final Character lastPlayedCharacter;
-
-  const Profile(this.grimoire, this.characterCount, this.lastPlayedCharacter);
+  Character get lastPlayedCharacter => characters.reduce((current, character) =>
+      current.lastPlayed.compareTo(character.lastPlayed) > 0
+          ? current
+          : character);
 }
 
 /// Identifiers for various equipment objects.
@@ -168,6 +176,20 @@ const Map<int, Class> CLASS_MAPPINGS = const {
   1: Class.HUNTER,
   2: Class.WARLOCK,
 };
+
+/// Returns a string representation of a character class.
+String getCharacterClassName(Class clazz) {
+  switch (clazz) {
+    case Class.TITAN:
+      return 'Titan';
+    case Class.HUNTER:
+      return 'Hunter';
+    case Class.WARLOCK:
+      return 'Warlock';
+    default:
+      throw 'Unknown character class: $clazz';
+  }
+}
 
 /// The rarity of inventory items.
 enum Rarity { COMMON, UNCOMMON, RARE, LEGENDARY, EXOTIC }
