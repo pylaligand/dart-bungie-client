@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
 
 import 'bungie_types.dart';
 
@@ -14,10 +15,21 @@ const _BASE = 'https://www.bungie.net/Platform';
 
 /// Client for the Bungie REST API.
 class BungieClient {
+  final _log = new Logger('BungieClient');
   final String _apiKey;
 
   /// Constructs a client with an API key.
   BungieClient(this._apiKey);
+
+  /// Returns a URL to the given player's Moments of Triumph on Bungie's
+  /// website.
+  String getPlayerProfileUrl(DestinyId id) =>
+      'https://www.bungie.net/en/Profile/${id.type}/${id.token}';
+
+  /// Returns a URL to the given player's Moments of Triumph on Bungie's
+  /// website.
+  String getPlayerTriumphsUrl(DestinyId id) =>
+      'https://www.bungie.net/en/Profile/Triumphs/${id.type}/${id.token}';
 
   /// Attempts to fetch the Destiny id of the player identified by [gamertag].
   ///
@@ -78,38 +90,22 @@ class BungieClient {
       return null;
     }
     final account = data['Response']['destinyAccounts'][0];
-    return new Profile(
-        account['grimoireScore'],
-        _extractCharacterCount(account),
-        _extractLastPlayedCharacter(account, id));
+    final characters = _extractCharacters(account, id);
+    return new Profile(account['grimoireScore'], characters);
   }
 
-  /// Extacts the number of played characters from the given account data.
-  int _extractCharacterCount(Map account) {
+  /// Extracts the characters for the given account.
+  List<Character> _extractCharacters(Map account, DestinyId id) {
     if (account['characters'] == null || account['characters'].isEmpty) {
-      return 0;
+      return const [];
     }
-    return account['characters'].length;
-  }
-
-  /// Extracts information about the last played character from the given
-  /// account data.
-  Character _extractLastPlayedCharacter(Map account, DestinyId id) {
-    if (account['characters'] == null || account['characters'].isEmpty) {
-      return null;
-    }
-    final characterData = account['characters'].reduce((current, character) {
-      final currentPlayedTime = DateTime.parse(current['dateLastPlayed']);
-      final lastPlayedTime = DateTime.parse(character['dateLastPlayed']);
-      return currentPlayedTime.compareTo(lastPlayedTime) > 0
-          ? current
-          : character;
-    });
-    return new Character(
-        id,
-        characterData['characterId'],
-        characterData['classHash'].toString(),
-        DateTime.parse(characterData['dateLastPlayed']));
+    return account['characters']
+        .map((characterData) => new Character(
+            id,
+            characterData['characterId'],
+            characterData['classType'],
+            DateTime.parse(characterData['dateLastPlayed'])))
+        .toList();
   }
 
   /// Returns the last character the given player played with.
@@ -135,6 +131,35 @@ class BungieClient {
     final instance = activity['activityDetails']['referenceId'];
     final override = activity['activityDetails']['activityTypeHashOverride'];
     return new ActivityReference.withOverride(instance, override);
+  }
+
+  /// Returns references to the raid activities completed by the given
+  /// character.
+  Future<List<ActivityReference>> getCharacterRaidCompletions(
+      Character character) async {
+    final id = character.owner;
+    final url =
+        '$_BASE/Destiny/Stats/ActivityHistory/${id.type}/${id.token}/${character.id}?mode=Raid';
+    final data = await _getJson(url);
+    if (!_hasValidResponse(data) ||
+        data['Response']['data'] == null ||
+        data['Response']['data']['activities'] == null ||
+        data['Response']['data']['activities'].isEmpty) {
+      return null;
+    }
+    return data['Response']['data']['activities']
+        .map((activity) {
+          if (activity['values']['completed']['basic']['value'] == 0) {
+            // Not completed.
+            return null;
+          }
+          final instance = activity['activityDetails']['referenceId'];
+          final override =
+              activity['activityDetails']['activityTypeHashOverride'];
+          return new ActivityReference.withOverride(instance, override);
+        })
+        .where((activity) => activity != null)
+        .toList();
   }
 
   /// Returns the grimoire score of the given player.
@@ -268,10 +293,18 @@ class BungieClient {
   }
 
   dynamic _getJson(String url) async {
-    final body = await http.read(url, headers: {'X-API-Key': this._apiKey});
+    final body = await http
+        .read(url, headers: {'X-API-Key': this._apiKey}).catchError((e, _) {
+      _log.warning('Failed request: $e');
+      return null;
+    });
+    if (body == null) {
+      return null;
+    }
     try {
       return JSON.decode(body);
-    } on FormatException catch (_) {
+    } on FormatException catch (e) {
+      _log.warning('Failed to decode content: $e');
       return null;
     }
   }
