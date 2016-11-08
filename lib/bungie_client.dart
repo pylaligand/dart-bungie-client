@@ -141,11 +141,11 @@ class BungieClient {
     final url =
         '$_BASE/Destiny/Stats/ActivityHistory/${id.type}/${id.token}/${character.id}?mode=Raid';
     final data = await _getJson(url);
-    if (!_hasValidResponse(data) ||
-        data['Response']['data'] == null ||
-        data['Response']['data']['activities'] == null ||
-        data['Response']['data']['activities'].isEmpty) {
+    if (!_hasValidResponse(data) || data['Response']['data'] == null) {
       return null;
+    }
+    if (data['Response']['data']['activities'] == null) {
+      return [];
     }
     return data['Response']['data']['activities']
         .map((activity) {
