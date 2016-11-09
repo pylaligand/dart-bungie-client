@@ -292,6 +292,17 @@ class BungieClient {
     return (100 * completed / total).round();
   }
 
+  /// Returns the raw data from a request to the given path, or null if the
+  /// request failed.
+  Future<Map> getRawData(String path) async {
+    final url = '$_BASE$path';
+    final data = await _getJson(url);
+    if (!_hasValidResponse(data) || data['Response']['data'] == null) {
+      return null;
+    }
+    return data['Response']['data'];
+  }
+
   dynamic _getJson(String url) async {
     final body = await http
         .read(url, headers: {'X-API-Key': this._apiKey}).catchError((e, _) {
