@@ -393,7 +393,8 @@ class Activity {
 class WeeklyProgram {
   final ActivityReference nightfall;
   final List<String> nightfallModifiers;
-  final String kingsFallChallenge;
+  final ActivityReference raid;
+  final List<String> raidModifiers;
   final List<String> poeModifiers;
   final ActivityReference cruciblePlaylist;
   final List<String> heroicStrikeModifiers;
@@ -401,7 +402,8 @@ class WeeklyProgram {
   const WeeklyProgram(
       this.nightfall,
       this.nightfallModifiers,
-      this.kingsFallChallenge,
+      this.raid,
+      this.raidModifiers,
       this.poeModifiers,
       this.cruciblePlaylist,
       this.heroicStrikeModifiers);
